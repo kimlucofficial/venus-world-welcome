@@ -25,12 +25,12 @@ avatar.save(avatar_path)
 
 with avatar_path.open("rb") as avatar_file:
     card_data = WelcomeCardData(
-        display_name="VENUS WORLD",
-        username="vteam2026",
-        user_id="1532436928836927508",
-        member_number=85,
+        display_name="Luke",
+        username="luke.ng",
+        user_id="510847279490662400",
+        member_number=88,
         date_text="31/07/2026",
-        time_text="00:38",
+        time_text="09:41",
     )
     result = make_welcome_card(card_data, avatar_bytes=avatar_file.read())
 

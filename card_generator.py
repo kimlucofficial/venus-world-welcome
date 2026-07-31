@@ -119,8 +119,37 @@ def _ellipsize(
     return text[:low].rstrip() + suffix
 
 
+def _render_text_crop(text: str, font: ImageFont.ImageFont) -> Image.Image:
+    """
+    Render chữ ra layer riêng rồi cắt đúng phần pixel thực sự nhìn thấy.
+
+    Cách này không dựa vào ascender/descender/baseline của font, nên phần nét chữ
+    được đặt đúng chính giữa ô theo cả chiều ngang lẫn chiều dọc.
+    """
+    probe = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    probe_draw = ImageDraw.Draw(probe)
+    left, top, right, bottom = probe_draw.textbbox((0, 0), text, font=font)
+
+    pad = 6
+    width = max(1, right - left + pad * 2)
+    height = max(1, bottom - top + pad * 2)
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    layer_draw = ImageDraw.Draw(layer)
+    layer_draw.text(
+        (pad - left, pad - top),
+        text,
+        font=font,
+        fill=TEXT_COLOR,
+    )
+
+    ink_box = layer.getchannel("A").getbbox()
+    if ink_box is None:
+        return layer
+    return layer.crop(ink_box)
+
+
 def draw_field_text(
-    draw: ImageDraw.ImageDraw,
+    image: Image.Image,
     box: tuple[int, int, int, int],
     text: str,
     *,
@@ -129,50 +158,38 @@ def draw_field_text(
     weight: FontWeight = "semibold",
     padding_x: int = 10,
     padding_y: int = 5,
-    optical_y_offset: int = 5,
 ) -> None:
     """
-    Dùng kích thước cố định hợp lý cho từng ô; chỉ thu nhỏ khi nội dung dài.
-    Nhờ vậy tên ngắn như "Luke" không bị phóng quá lớn.
+    Căn giữa thật sự theo pixel nhìn thấy của chữ.
+
+    Chữ ngắn giữ nguyên kích thước thiết kế. Chỉ thu nhỏ nếu nội dung quá dài.
     """
     x1, y1, x2, y2 = box
     clean_text = " ".join(str(text).split()) or "-"
     max_width = max(1, x2 - x1 - padding_x * 2)
     max_height = max(1, y2 - y1 - padding_y * 2)
+    measure_draw = ImageDraw.Draw(image)
 
     selected_font: ImageFont.ImageFont | None = None
-    selected_bounds: tuple[int, int, int, int] | None = None
     selected_text = clean_text
 
     for current_size in range(size, min_size - 1, -1):
         font = _load_font(current_size, weight=weight)
-        width, height, bounds = _measure(draw, clean_text, font)
+        width, height, _ = _measure(measure_draw, clean_text, font)
         if width <= max_width and height <= max_height:
             selected_font = font
-            selected_bounds = bounds
             break
 
     if selected_font is None:
         selected_font = _load_font(min_size, weight=weight)
-        selected_text = _ellipsize(draw, clean_text, selected_font, max_width)
-        _, _, selected_bounds = _measure(draw, selected_text, selected_font)
+        selected_text = _ellipsize(measure_draw, clean_text, selected_font, max_width)
 
-    assert selected_bounds is not None
-    left, top, right, bottom = selected_bounds
-    text_width = right - left
-    text_height = bottom - top
+    text_layer = _render_text_crop(selected_text, selected_font)
 
-    x = x1 + (x2 - x1 - text_width) / 2 - left
-    # Font Lato có phần nét chữ nhìn nặng ở phía trên.
-    # Dịch xuống nhẹ để chữ nằm giữa ô theo thị giác, không bám lên nóc.
-    y = y1 + (y2 - y1 - text_height) / 2 - top + optical_y_offset
-
-    draw.text(
-        (round(x), round(y)),
-        selected_text,
-        font=selected_font,
-        fill=TEXT_COLOR,
-    )
+    # Center theo đúng khung ô, dùng kích thước pixel thực tế của nét chữ.
+    target_x = round(x1 + (x2 - x1 - text_layer.width) / 2)
+    target_y = round(y1 + (y2 - y1 - text_layer.height) / 2)
+    image.alpha_composite(text_layer, (target_x, target_y))
 
 
 def _paste_round_avatar(base: Image.Image, avatar_bytes: bytes | None) -> None:
@@ -225,33 +242,32 @@ def make_welcome_card(
             f"Kích thước hiện tại: {image.width}x{image.height}."
         )
 
-    draw = ImageDraw.Draw(image)
     _paste_round_avatar(image, avatar_bytes)
 
-    # Vé nhỏ bên trái — kích thước vừa, không phóng quá lớn.
-    draw_field_text(draw, (100, 307, 343, 357), data.display_name, size=20, min_size=14, optical_y_offset=4)
-    draw_field_text(draw, (83, 406, 343, 455), data.origin.upper(), size=20, min_size=14)
-    draw_field_text(draw, (83, 505, 343, 554), data.destination.upper(), size=19, min_size=13)
-    draw_field_text(draw, (83, 604, 343, 653), data.resolved_flight_code().upper(), size=20, min_size=14)
-    draw_field_text(draw, (83, 703, 343, 752), data.date_text, size=19, min_size=14)
-    draw_field_text(draw, (83, 802, 343, 851), data.time_text, size=19, min_size=14)
+    # Vé nhỏ bên trái.
+    draw_field_text(image, (100, 307, 343, 357), data.display_name, size=20, min_size=14)
+    draw_field_text(image, (83, 406, 343, 455), data.origin.upper(), size=20, min_size=14)
+    draw_field_text(image, (83, 505, 343, 554), data.destination.upper(), size=19, min_size=13)
+    draw_field_text(image, (83, 604, 343, 653), data.resolved_flight_code().upper(), size=20, min_size=14)
+    draw_field_text(image, (83, 703, 343, 752), data.date_text, size=19, min_size=14)
+    draw_field_text(image, (83, 802, 343, 851), data.time_text, size=19, min_size=14)
 
     # Khối thông tin chính.
-    draw_field_text(draw, (466, 370, 760, 426), data.display_name, size=23, min_size=15)
-    draw_field_text(draw, (837, 370, 1164, 426), data.username.lstrip("@"), size=22, min_size=15)
+    draw_field_text(image, (466, 370, 760, 426), data.display_name, size=23, min_size=15)
+    draw_field_text(image, (837, 370, 1164, 426), data.username.lstrip("@"), size=22, min_size=15)
     draw_field_text(
-        draw,
+        image,
         (466, 497, 760, 550),
         str(data.user_id),
         size=17,
         min_size=13,
         weight="medium",
     )
-    draw_field_text(draw, (837, 497, 1164, 550), data.nationality.upper(), size=21, min_size=15)
+    draw_field_text(image, (837, 497, 1164, 550), data.nationality.upper(), size=21, min_size=15)
 
     # Hàng ngày và giờ phía dưới.
-    draw_field_text(draw, (466, 849, 728, 908), data.date_text, size=20, min_size=14)
-    draw_field_text(draw, (837, 849, 1042, 908), data.time_text, size=20, min_size=14)
+    draw_field_text(image, (466, 849, 728, 908), data.date_text, size=20, min_size=14)
+    draw_field_text(image, (837, 849, 1042, 908), data.time_text, size=20, min_size=14)
 
     output = BytesIO()
     image.convert("RGB").save(output, format="PNG", optimize=True)

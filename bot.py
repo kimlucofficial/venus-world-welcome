@@ -77,20 +77,70 @@ def build_card_data(member: discord.Member) -> WelcomeCardData:
     )
 
 
-async def render_member_card(member: discord.Member) -> BytesIO:
+async def render_member_card(
+    member: discord.Member,
+    data: WelcomeCardData | None = None,
+) -> BytesIO:
     avatar_bytes: bytes | None = None
     try:
         avatar_bytes = await member.display_avatar.with_size(256).read()
     except discord.HTTPException:
         log.warning("Không tải được avatar của %s", member)
 
-    data = build_card_data(member)
+    card_data = data or build_card_data(member)
     png_bytes = await asyncio.to_thread(
         make_welcome_card,
-        data,
+        card_data,
         avatar_bytes=avatar_bytes,
     )
     return BytesIO(png_bytes)
+
+
+def build_welcome_embed(
+    member: discord.Member,
+    data: WelcomeCardData,
+    image_filename: str,
+) -> discord.Embed:
+    member_count = member.guild.member_count or len(member.guild.members)
+    description = WELCOME_MESSAGE.format(
+        mention=member.mention,
+        server=member.guild.name,
+        member_count=member_count,
+        username=member.name,
+        display_name=member.display_name,
+    )
+
+    embed = discord.Embed(
+        title=f"✈️ Welcome aboard, {member.display_name}!",
+        description=description,
+        color=discord.Color.from_rgb(225, 126, 214),
+        timestamp=datetime.now(SERVER_TIMEZONE),
+    )
+
+    if member.guild.icon:
+        embed.set_author(name=member.guild.name, icon_url=member.guild.icon.url)
+    else:
+        embed.set_author(name=member.guild.name)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.set_image(url=f"attachment://{image_filename}")
+
+    embed.add_field(
+        name="✈️ Chuyến bay",
+        value=f"`{data.resolved_flight_code()}`",
+        inline=True,
+    )
+    embed.add_field(
+        name="📍 Điểm đến",
+        value=f"**{data.destination}**",
+        inline=True,
+    )
+    embed.add_field(
+        name="🎟️ Hành khách",
+        value=f"**#{member_count}**",
+        inline=True,
+    )
+    embed.set_footer(text=f"VENUS WORLD • {data.date_text} • {data.time_text}")
+    return embed
 
 
 async def get_welcome_channel(guild: discord.Guild) -> discord.abc.Messageable | None:
@@ -109,21 +159,22 @@ async def get_welcome_channel(guild: discord.Guild) -> discord.abc.Messageable |
 
 
 async def send_welcome(member: discord.Member, channel: discord.abc.Messageable) -> None:
-    image_buffer = await render_member_card(member)
-    member_count = member.guild.member_count or len(member.guild.members)
-    message = WELCOME_MESSAGE.format(
-        mention=member.mention,
-        server=member.guild.name,
-        member_count=member_count,
-        username=member.name,
-        display_name=member.display_name,
-    )
+    data = build_card_data(member)
+    image_buffer = await render_member_card(member, data)
+    filename = f"welcome-{member.id}.png"
+    file = discord.File(image_buffer, filename=filename)
+    embed = build_welcome_embed(member, data, filename)
 
-    file = discord.File(image_buffer, filename=f"welcome-{member.id}.png")
+    # Mention riêng để thành viên nhận thông báo; ảnh nằm bên trong embed.
     await channel.send(
-        content=message,
+        content=member.mention,
+        embed=embed,
         file=file,
-        allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
+        allowed_mentions=discord.AllowedMentions(
+            users=True,
+            roles=False,
+            everyone=False,
+        ),
     )
 
 
@@ -179,9 +230,16 @@ async def test_welcome(interaction: discord.Interaction) -> None:
 
     await interaction.response.defer(ephemeral=True, thinking=True)
     try:
-        image_buffer = await render_member_card(interaction.user)
-        file = discord.File(image_buffer, filename=f"welcome-test-{interaction.user.id}.png")
-        await interaction.followup.send("✅ Preview welcome card:", file=file, ephemeral=True)
+        data = build_card_data(interaction.user)
+        image_buffer = await render_member_card(interaction.user, data)
+        filename = f"welcome-test-{interaction.user.id}.png"
+        file = discord.File(image_buffer, filename=filename)
+        embed = build_welcome_embed(interaction.user, data, filename)
+        await interaction.followup.send(
+            embed=embed,
+            file=file,
+            ephemeral=True,
+        )
     except Exception:
         log.exception("Lỗi khi chạy /testwelcome")
         await interaction.followup.send(

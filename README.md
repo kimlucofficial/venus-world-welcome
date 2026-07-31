@@ -96,3 +96,10 @@ Bot Discord không cần Domain và không cần biến `PORT`.
 - Các dòng `FROM`, `TO`, `FLIGHT`, `DATE`, `BOARDING TIME` được căn cùng một trục.
 - Username không bị lặp hai dấu `@` vì template đã có icon `@`.
 - Template bắt buộc giữ đúng kích thước `1448x1086`.
+
+## Bản cập nhật căn giữa + Discord Embed
+
+- Nội dung trên boarding pass được căn giữa theo **pixel thực tế của nét chữ**, không còn phụ thuộc baseline của font.
+- Welcome card được hiển thị bên trong Discord Embed bằng `attachment://...`.
+- Tin nhắn chỉ mention thành viên ở ngoài embed để Discord gửi thông báo.
+- Lệnh `/testwelcome` cũng hiển thị đúng embed hoàn chỉnh.

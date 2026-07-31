@@ -129,6 +129,7 @@ def draw_field_text(
     weight: FontWeight = "semibold",
     padding_x: int = 10,
     padding_y: int = 5,
+    optical_y_offset: int = 5,
 ) -> None:
     """
     Dùng kích thước cố định hợp lý cho từng ô; chỉ thu nhỏ khi nội dung dài.
@@ -162,7 +163,9 @@ def draw_field_text(
     text_height = bottom - top
 
     x = x1 + (x2 - x1 - text_width) / 2 - left
-    y = y1 + (y2 - y1 - text_height) / 2 - top
+    # Font Lato có phần nét chữ nhìn nặng ở phía trên.
+    # Dịch xuống nhẹ để chữ nằm giữa ô theo thị giác, không bám lên nóc.
+    y = y1 + (y2 - y1 - text_height) / 2 - top + optical_y_offset
 
     draw.text(
         (round(x), round(y)),
@@ -226,7 +229,7 @@ def make_welcome_card(
     _paste_round_avatar(image, avatar_bytes)
 
     # Vé nhỏ bên trái — kích thước vừa, không phóng quá lớn.
-    draw_field_text(draw, (100, 307, 343, 357), data.display_name, size=20, min_size=14)
+    draw_field_text(draw, (100, 307, 343, 357), data.display_name, size=20, min_size=14, optical_y_offset=4)
     draw_field_text(draw, (83, 406, 343, 455), data.origin.upper(), size=20, min_size=14)
     draw_field_text(draw, (83, 505, 343, 554), data.destination.upper(), size=19, min_size=13)
     draw_field_text(draw, (83, 604, 343, 653), data.resolved_flight_code().upper(), size=20, min_size=14)

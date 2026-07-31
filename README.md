@@ -1,105 +1,80 @@
 # Venus World Welcome Bot 🎀
 
-Bot tự động tạo **boarding pass welcome** từ ảnh template Venus World khi thành viên mới tham gia Discord.
+Bot tự động tạo boarding pass Venus World và gửi welcome card cỡ lớn khi thành viên mới vào Discord.
 
 ## Chức năng
 
 - Tự chạy khi có thành viên mới (`on_member_join`).
 - Điền avatar, display name, username, user ID, số thành viên, ngày và giờ.
-- Gửi ảnh vào đúng welcome channel.
-- Có slash command `/testwelcome` dành cho người có quyền **Manage Server**.
-- Tự co chữ khi tên Discord quá dài.
+- Chữ được căn đúng giữa phần lòng của từng ô trên template.
+- Welcome card dùng **Discord Components V2**: ảnh rộng ở trên, nội dung nằm bên dưới trong cùng một khung.
+- Có slash command `/testwelcome` cho người có quyền **Manage Server**.
+- Tự thu nhỏ chữ khi tên hoặc Discord ID quá dài.
 
-> Discord không cung cấp quốc tịch của thành viên. Vì vậy trường `NATIONALITY` lấy từ `DEFAULT_NATIONALITY` trong `.env`.
+> Discord không cung cấp quốc tịch. Trường `NATIONALITY` lấy từ `DEFAULT_NATIONALITY`.
 
-## 1. Chuẩn bị bot Discord
+## Cài đặt Discord
 
-1. Vào Discord Developer Portal và tạo application/bot.
-2. Trong trang **Bot**, bật **Server Members Intent**.
-3. Mời bot vào server với các quyền:
+1. Tạo bot trong Discord Developer Portal.
+2. Trong **Bot → Privileged Gateway Intents**, bật **Server Members Intent**.
+3. Mời bot với các quyền:
    - View Channel
    - Send Messages
    - Attach Files
    - Use Application Commands
-4. Trong Discord, bật **Developer Mode**, sau đó copy:
-   - ID welcome channel
-   - ID server
+4. Bật Developer Mode trong Discord và copy ID kênh welcome cùng ID server.
 
-## 2. Cài trên Windows VPS
-
-Khuyến nghị dùng Python 3.11 hoặc 3.12.
-
-1. Giải nén thư mục bot.
-2. Chạy `setup.bat` một lần để cài thư viện và tạo file `.env`.
-3. Mở file `.env` và điền:
+## Variables
 
 ```env
-DISCORD_TOKEN=token_cua_bot
-WELCOME_CHANNEL_ID=id_kenh_welcome
-TEST_GUILD_ID=id_server
+DISCORD_TOKEN=TOKEN_MOI_CUA_BAN
+WELCOME_CHANNEL_ID=ID_KENH_WELCOME
+TEST_GUILD_ID=ID_SERVER
+TIMEZONE=Asia/Ho_Chi_Minh
+DEFAULT_NATIONALITY=VIETNAM
 ```
 
+Không đưa `.env` hoặc token thật lên GitHub.
+
+## Railway
+
+1. Upload toàn bộ file trong thư mục này lên root GitHub repository.
+2. Railway → **New Project** → **Deploy from GitHub Repo**.
+3. Thêm các Variables ở trên.
+4. Redeploy.
+
+Source đã có `Dockerfile` và `railway.json`. Start Command là:
+
+```bash
+python bot.py
+```
+
+Bot không cần Domain và không cần biến `PORT`.
+
+## Windows VPS
+
+1. Cài Python 3.11 hoặc 3.12.
+2. Chạy `setup.bat`.
+3. Điền `.env`.
 4. Chạy `start.bat`.
-5. Trong server, dùng `/testwelcome` để kiểm tra bố cục.
 
-## 3. Chạy 24/7
+## Test
 
-Cách đơn giản nhất trên Windows VPS:
+Trong server, chạy:
 
-- Mở `start.bat` và giữ cửa sổ chạy.
-- Hoặc dùng Task Scheduler để chạy `start.bat` khi Windows khởi động.
+```text
+/testwelcome
+```
 
 ## Tùy chỉnh
 
-- Ảnh nền: `assets/boarding_pass.png`
-- Vị trí chữ: `card_generator.py`
-- Tin nhắn welcome: `WELCOME_MESSAGE` trong `.env`
-- Múi giờ: `TIMEZONE=Asia/Ho_Chi_Minh`
+- Template: `assets/boarding_pass.png`
+- Tọa độ và font chữ: `card_generator.py`
+- Nội dung welcome và custom emoji: `bot.py`
+- Múi giờ: `TIMEZONE`
 
-## Lỗi thường gặp
+## Lưu ý
 
-### Bot online nhưng không gửi khi có người join
-
-- Chưa bật **Server Members Intent** trong Developer Portal.
-- Bot thiếu quyền xem kênh, gửi tin hoặc đính kèm file.
-- `WELCOME_CHANNEL_ID` sai.
-
-### `/testwelcome` không xuất hiện
-
-- Điền đúng `TEST_GUILD_ID`, restart bot và chờ vài giây.
-- Bot phải được mời với scope `applications.commands`.
-
-### Chữ tiếng Việt bị ô vuông
-
-Bot tự tìm Arial/Segoe UI trên Windows. Có thể chỉ định trực tiếp:
-
-```env
-FONT_BOLD=C:\Windows\Fonts\arialbd.ttf
-FONT_REGULAR=C:\Windows\Fonts\arial.ttf
-```
-
-## Deploy lên Railway
-
-Source đã có sẵn `railway.json` và `Procfile`.
-
-1. Đưa toàn bộ file trong thư mục này lên **root** của GitHub repository.
-2. Không upload `.env` thật lên GitHub.
-3. Railway → **New Project** → **Deploy from GitHub Repo**.
-4. Trong **Variables**, nhập các biến từ `.env.example`.
-5. Start Command đã được đặt sẵn là `python bot.py`.
-
-Bot Discord không cần Domain và không cần biến `PORT`.
-
-## Bản sửa bố cục
-
-- Chữ được căn giữa theo chiều dọc bằng text anchor, nên không còn dồn lên mép ô khi đổi từ Windows sang Railway Linux.
-- Các dòng `FROM`, `TO`, `FLIGHT`, `DATE`, `BOARDING TIME` được căn cùng một trục.
-- Username không bị lặp hai dấu `@` vì template đã có icon `@`.
-- Template bắt buộc giữ đúng kích thước `1448x1086`.
-
-## Bản cập nhật căn giữa + Discord Embed
-
-- Nội dung trên boarding pass được căn giữa theo **pixel thực tế của nét chữ**, không còn phụ thuộc baseline của font.
-- Welcome card được hiển thị bên trong Discord Embed bằng `attachment://...`.
-- Tin nhắn chỉ mention thành viên ở ngoài embed để Discord gửi thông báo.
-- Lệnh `/testwelcome` cũng hiển thị đúng embed hoàn chỉnh.
+- Giữ `boarding_pass.png` đúng kích thước `1448x1086`.
+- Source yêu cầu `discord.py 2.6.3+` để dùng Components V2 và MediaGallery.
+- Nếu custom emoji không hiện, bot phải ở trong server chứa các emoji đó hoặc có quyền sử dụng emoji bên ngoài.

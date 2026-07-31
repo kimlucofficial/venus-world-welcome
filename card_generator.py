@@ -244,30 +244,33 @@ def make_welcome_card(
 
     _paste_round_avatar(image, avatar_bytes)
 
-    # Vé nhỏ bên trái.
-    draw_field_text(image, (100, 307, 343, 357), data.display_name, size=20, min_size=14)
-    draw_field_text(image, (83, 406, 343, 455), data.origin.upper(), size=20, min_size=14)
-    draw_field_text(image, (83, 505, 343, 554), data.destination.upper(), size=19, min_size=13)
-    draw_field_text(image, (83, 604, 343, 653), data.resolved_flight_code().upper(), size=20, min_size=14)
-    draw_field_text(image, (83, 703, 343, 752), data.date_text, size=19, min_size=14)
-    draw_field_text(image, (83, 802, 343, 851), data.time_text, size=19, min_size=14)
+    # Tọa độ dưới đây bám đúng phần lòng trắng của từng ô trên template.
+    # Nhờ vậy chữ được căn giữa cả ngang lẫn dọc, không còn nằm sát nóc ô.
+
+    # Vé nhỏ bên trái. PASSENGER chừa khoảng trống cho avatar.
+    draw_field_text(image, (100, 315, 343, 365), data.display_name, size=20, min_size=14)
+    draw_field_text(image, (45, 417, 343, 467), data.origin.upper(), size=20, min_size=14)
+    draw_field_text(image, (45, 519, 343, 569), data.destination.upper(), size=19, min_size=13)
+    draw_field_text(image, (45, 620, 343, 670), data.resolved_flight_code().upper(), size=20, min_size=14)
+    draw_field_text(image, (45, 722, 343, 772), data.date_text, size=19, min_size=14)
+    draw_field_text(image, (45, 823, 343, 873), data.time_text, size=19, min_size=14)
 
     # Khối thông tin chính.
-    draw_field_text(image, (466, 370, 760, 426), data.display_name, size=23, min_size=15)
-    draw_field_text(image, (837, 370, 1164, 426), data.username.lstrip("@"), size=22, min_size=15)
+    draw_field_text(image, (466, 381, 760, 437), data.display_name, size=23, min_size=15)
+    draw_field_text(image, (837, 381, 1164, 437), data.username.lstrip("@"), size=22, min_size=15)
     draw_field_text(
         image,
-        (466, 497, 760, 550),
+        (466, 510, 760, 566),
         str(data.user_id),
         size=17,
         min_size=13,
         weight="medium",
     )
-    draw_field_text(image, (837, 497, 1164, 550), data.nationality.upper(), size=21, min_size=15)
+    draw_field_text(image, (837, 510, 1164, 566), data.nationality.upper(), size=21, min_size=15)
 
     # Hàng ngày và giờ phía dưới.
-    draw_field_text(image, (466, 849, 728, 908), data.date_text, size=20, min_size=14)
-    draw_field_text(image, (837, 849, 1042, 908), data.time_text, size=20, min_size=14)
+    draw_field_text(image, (466, 872, 728, 932), data.date_text, size=20, min_size=14)
+    draw_field_text(image, (837, 872, 1042, 932), data.time_text, size=20, min_size=14)
 
     output = BytesIO()
     image.convert("RGB").save(output, format="PNG", optimize=True)

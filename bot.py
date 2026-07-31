@@ -25,6 +25,13 @@ logging.basicConfig(
 log = logging.getLogger("venus-welcome")
 
 
+# Custom emoji do bạn cung cấp.
+EMOJI_WELCOME_ABOARD = "<:96359bubbleheart:1532387513031721101>"
+EMOJI_WELCOME = "<a:SaF_Bluerollingstar:1532586674952081519>"
+EMOJI_FLIGHT = "<a:fwb_cloudfly:1532586588658204724>"
+EMOJI_PASSENGER = "<:14776kuromibow:1532387089281450135>"
+
+
 def env_int(name: str, default: int | None = None) -> int | None:
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -40,15 +47,11 @@ WELCOME_CHANNEL_ID = env_int("WELCOME_CHANNEL_ID")
 TEST_GUILD_ID = env_int("TEST_GUILD_ID")
 TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Ho_Chi_Minh").strip()
 DEFAULT_NATIONALITY = os.getenv("DEFAULT_NATIONALITY", "VIETNAM").strip() or "VIETNAM"
-WELCOME_MESSAGE = os.getenv(
-    "WELCOME_MESSAGE",
-    "🎀 Chào mừng {mention} đến với **{server}**! Bạn là hành khách thứ **#{member_count}**.",
-)
 
 if not TOKEN:
-    raise RuntimeError("Thiếu DISCORD_TOKEN trong file .env")
+    raise RuntimeError("Thiếu DISCORD_TOKEN trong file .env hoặc Railway Variables")
 if WELCOME_CHANNEL_ID is None:
-    raise RuntimeError("Thiếu WELCOME_CHANNEL_ID trong file .env")
+    raise RuntimeError("Thiếu WELCOME_CHANNEL_ID trong file .env hoặc Railway Variables")
 
 try:
     SERVER_TIMEZONE = ZoneInfo(TIMEZONE_NAME)
@@ -96,51 +99,43 @@ async def render_member_card(
     return BytesIO(png_bytes)
 
 
-def build_welcome_embed(
+def build_welcome_view(
     member: discord.Member,
     data: WelcomeCardData,
     image_filename: str,
-) -> discord.Embed:
+) -> discord.ui.LayoutView:
+    """
+    Tạo welcome card cỡ lớn bằng Discord Components V2.
+
+    MediaGallery làm ảnh hiển thị rộng như mẫu tham khảo. Phần nội dung nằm
+    ngay bên dưới ảnh trong cùng một container, thay vì embed nhỏ có thumbnail.
+    """
     member_count = member.guild.member_count or len(member.guild.members)
-    description = WELCOME_MESSAGE.format(
-        mention=member.mention,
-        server=member.guild.name,
-        member_count=member_count,
-        username=member.name,
-        display_name=member.display_name,
+
+    view = discord.ui.LayoutView(timeout=None)
+    container = discord.ui.Container(
+        accent_colour=discord.Colour.from_rgb(225, 126, 214),
     )
 
-    embed = discord.Embed(
-        title=f"✈️ Welcome aboard, {member.display_name}!",
-        description=description,
-        color=discord.Color.from_rgb(225, 126, 214),
-        timestamp=datetime.now(SERVER_TIMEZONE),
+    gallery = discord.ui.MediaGallery()
+    gallery.add_item(
+        media=f"attachment://{image_filename}",
+        description=f"Boarding pass của {member.display_name}",
     )
+    container.add_item(gallery)
+    container.add_item(discord.ui.Separator())
 
-    if member.guild.icon:
-        embed.set_author(name=member.guild.name, icon_url=member.guild.icon.url)
-    else:
-        embed.set_author(name=member.guild.name)
-    embed.set_thumbnail(url=member.display_avatar.url)
-    embed.set_image(url=f"attachment://{image_filename}")
-
-    embed.add_field(
-        name="✈️ Chuyến bay",
-        value=f"`{data.resolved_flight_code()}`",
-        inline=True,
+    welcome_text = (
+        f"## {EMOJI_WELCOME_ABOARD} WELCOME ABOARD\n"
+        f"{EMOJI_WELCOME} **Chào mừng {member.mention} đã đến với "
+        f"{member.guild.name}!**\n\n"
+        f"{EMOJI_FLIGHT} **Chuyến bay:** `{data.resolved_flight_code()}`\n"
+        f"{EMOJI_PASSENGER} **Hành khách:** `#{member_count}`\n\n"
+        f"-# VENUS WORLD • {data.date_text} • {data.time_text}"
     )
-    embed.add_field(
-        name="📍 Điểm đến",
-        value=f"**{data.destination}**",
-        inline=True,
-    )
-    embed.add_field(
-        name="🎟️ Hành khách",
-        value=f"**#{member_count}**",
-        inline=True,
-    )
-    embed.set_footer(text=f"VENUS WORLD • {data.date_text} • {data.time_text}")
-    return embed
+    container.add_item(discord.ui.TextDisplay(welcome_text))
+    view.add_item(container)
+    return view
 
 
 async def get_welcome_channel(guild: discord.Guild) -> discord.abc.Messageable | None:
@@ -163,13 +158,11 @@ async def send_welcome(member: discord.Member, channel: discord.abc.Messageable)
     image_buffer = await render_member_card(member, data)
     filename = f"welcome-{member.id}.png"
     file = discord.File(image_buffer, filename=filename)
-    embed = build_welcome_embed(member, data, filename)
+    view = build_welcome_view(member, data, filename)
 
-    # Mention riêng để thành viên nhận thông báo; ảnh nằm bên trong embed.
     await channel.send(
-        content=member.mention,
-        embed=embed,
         file=file,
+        view=view,
         allowed_mentions=discord.AllowedMentions(
             users=True,
             roles=False,
@@ -234,16 +227,21 @@ async def test_welcome(interaction: discord.Interaction) -> None:
         image_buffer = await render_member_card(interaction.user, data)
         filename = f"welcome-test-{interaction.user.id}.png"
         file = discord.File(image_buffer, filename=filename)
-        embed = build_welcome_embed(interaction.user, data, filename)
+        view = build_welcome_view(interaction.user, data, filename)
         await interaction.followup.send(
-            embed=embed,
             file=file,
+            view=view,
             ephemeral=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
         )
     except Exception:
         log.exception("Lỗi khi chạy /testwelcome")
         await interaction.followup.send(
-            "❌ Không tạo được ảnh. Hãy xem lỗi trong cửa sổ CMD/VPS.",
+            "❌ Không tạo được welcome card. Hãy xem Deploy Logs trên Railway.",
             ephemeral=True,
         )
 

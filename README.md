@@ -77,3 +77,22 @@ Bot tự tìm Arial/Segoe UI trên Windows. Có thể chỉ định trực tiế
 FONT_BOLD=C:\Windows\Fonts\arialbd.ttf
 FONT_REGULAR=C:\Windows\Fonts\arial.ttf
 ```
+
+## Deploy lên Railway
+
+Source đã có sẵn `railway.json` và `Procfile`.
+
+1. Đưa toàn bộ file trong thư mục này lên **root** của GitHub repository.
+2. Không upload `.env` thật lên GitHub.
+3. Railway → **New Project** → **Deploy from GitHub Repo**.
+4. Trong **Variables**, nhập các biến từ `.env.example`.
+5. Start Command đã được đặt sẵn là `python bot.py`.
+
+Bot Discord không cần Domain và không cần biến `PORT`.
+
+## Bản sửa bố cục
+
+- Chữ được căn giữa theo chiều dọc bằng text anchor, nên không còn dồn lên mép ô khi đổi từ Windows sang Railway Linux.
+- Các dòng `FROM`, `TO`, `FLIGHT`, `DATE`, `BOARDING TIME` được căn cùng một trục.
+- Username không bị lặp hai dấu `@` vì template đã có icon `@`.
+- Template bắt buộc giữ đúng kích thước `1448x1086`.
